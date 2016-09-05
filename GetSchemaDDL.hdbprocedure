@@ -1,0 +1,42 @@
+PROCEDURE "HANA"."GetSchemaDDL" 
+(
+  in  inSchema nvarchar(40),
+  out outDDL "HANA"."dict.ddlExport"  
+)
+	language sqlscript
+	sql security invoker 
+	default schema "HANA"
+	
+AS
+ -- scalar variables  
+    tableDDL nvarchar(4096);
+    l_tables integer;
+    i integer;
+    l_tabname nvarchar(255);
+    
+BEGIN  
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    DROP TABLE #mytemp;
+  END;
+    -- prepare an output table
+    create local temporary table #mytemp ("id" integer, "ddl" NCLOB);  
+    
+    -- select relevant tables
+    tablesTab = select * from tables where schema_name = :inSchema;
+ 
+    -- select
+    SELECT COUNT(*) INTO l_tables FROM :tablesTab;  
+    
+    FOR i IN 0 .. :l_tables-1 DO  
+    
+      SELECT table_name INTO l_tabname  FROM :tablesTab LIMIT 1 OFFSET :i; 
+        
+      call "HANA"."GetTableDDL"(:inSchema,l_tabname,:tableDDL);
+      insert into #mytemp values (:i, :tableDDL);  
+    end for;
+ 
+    outDDL = select * from #mytemp;  
+
+END;
